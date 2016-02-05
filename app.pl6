@@ -1,6 +1,5 @@
 use v6;
 use HTTP::Server::Simple::PSGI;
-use JSON::Fast;
 
 my $app = sub (%env) {
   given %env<REQUEST_URI>.split('?')[0] {
