@@ -68,11 +68,19 @@
       @media (max-width: 768px) {
         #welcome-header img { display: none !important; }
       }
+      @media (max-width: 992px) {
+        #lang-field { margin-top: .5em; }
+      }
+      @media (max-width: 1200px) {
+        #comp-field { margin-top: .5em; }
+      }
+
       @media (min-width: 768px) {
         .col-sm-5ths { width: 20%; float: left; }
       }
       @media (min-width: 992px) {
         .col-md-5ths { width: 20%; float: left; }
+
       }
       @media (min-width: 1200px) {
         .col-lg-5ths { width: 20%; float: left; }
@@ -186,7 +194,6 @@
               </label>
               <input class="form-control" id="bug-email"
                      type="email" name="email" placeholder="camelia@perl.org">
-              <small class="text-muted">This is the email that will be given as the requestor.</small>
             </fieldset>
             <fieldset class="form-inline" style="margin-bottom: 1em;">
               <div class="form-group">
@@ -203,7 +210,7 @@
                   <option value="unexpected-result">Unexpected Result</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="form-group" id="lang-field">
                 <label for="bug-lang-ver" style="margin-right: .5em;">Language</label>
                 <select class="form-control" id="bug-lang-ver" style="margin-right: .5em;">
                   <option value="v6.c" selected>v6.c</option>
@@ -211,7 +218,7 @@
                   <option value="v6.d" disabled>v6.d</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="form-group" id="comp-field">
                 <label for="bug-comp-ver" style="margin-right: .5em;">Compiler</label>
                 <select class="form-control" id="bug-comp-ver">
                   <option value="2015.11">2015.11</option>
@@ -222,9 +229,9 @@
               </div>
             </fieldset>
             <fieldset class="form-group collapse" id="collapser">
-              <ul class="list-group"></div>
+              <ul class="list-group" style="margin-bottom: 0"></ul>
             </fieldset>
-            <fieldset class="form-group">
+            <fieldset class="form-group" style="clear: both;">
               <textarea class="form-control" id="bug-body" name="body" rows=20></textarea>
             </fieldset>
           </form>
@@ -302,25 +309,37 @@
       var PosTicketCollapse = (function() {
         var urlBase = "/tickets?subject=",
             collapser = $("#collapser"),
-            subjList = $("#collapser div.list-group")
+            subjList = $("#collapser ul.list-group")
             subject = $("#bug-subj");
 
         var init = function() {
           subject.on('input', function(e) {
             var search = subject.val()
             if (search.length > 3) {
-              $.get(urlBase + encodeURIComponent(search), function(data) {
-                subjList.empty();
-                data.map(function(ticket) {
-                  var rightCreated =
-                    '<span class="label label-default label-pill pull-xs-right">' +
-                    ticket.created + '</span>'
-                  var btn = $("<li>")
-                    .addClass('list-group-item')
-                    .html(rightCreated + ticket.id + " - " + ticket.subject);
-                  subjList.append(btn);
-                });
-                collapser.collapse('show');
+              console.log("Running ajax now...");
+              $.get({
+                url: urlBase + encodeURIComponent(search),
+                dataType: 'json',
+                error: function(jqXHR, textStatus, errorThrown) {
+                  console.log(jqXHR);
+                  console.log(textStatus);
+                  console.log(errorThrown);
+                },
+                success: function(data) {
+                  console.log(data);
+                  subjList.empty();
+                  data.map(function(ticket) {
+                    var rightCreated =
+                      '<span class="label label-default label-pill pull-right">' +
+                      ticket.created + '</span>'
+                    var item = $("<li>")
+                      .addClass('list-group-item')
+                      .html(rightCreated + ticket.id + " - " + ticket.subject);
+                    subjList.append(item);
+                  });
+                  collapser.collapse('show');
+                },
+                complete: function() { console.log('Finished!'); }
               });
             } else { collapser.collapse('hide') }
           });

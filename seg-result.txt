@@ -1,0 +1,27 @@
+id	Subject	Created
+127440	Segmentation Fault with Crust	Sun Jan 31 05:00:47 2016
+127254	Segmentation fault on recursive binding (my $x := (my $y := $x))	Tue Jan 12 14:29:46 2016
+127208	Non-deterministic segfaults in parallel code	Thu Jan 07 15:29:49 2016
+126976	[BUG] [Moar] Segfault on "/".IO.mkdir	Sun Dec 20 23:06:34 2015
+126857	Segmentation fault (my ([$a]); $a.WHAT)	Wed Dec 09 09:52:14 2015
+126756	Segfault on single utf8-c8 synthetic	Sat Nov 28 06:22:27 2015
+126587	[BUG] require inside thread segfault hang	Sun Nov 08 01:11:45 2015
+126551	[BUG] Segfault on EXPORT returning Hash in weird circumstance	Tue Nov 03 04:18:43 2015
+126508	[BUG] segfault on multi sub named cross	Fri Oct 30 20:29:37 2015
+126492	native str attributes need initialization to prevent segfault	Thu Oct 29 13:43:22 2015
+126490	[BUG] Control exception handling is inconsistent and broken across backends. (SEGV on moar, CX unrecognized on jvm)	Thu Oct 29 09:22:30 2015
+126350	[BUG] segmentation fault with precompile + add_method	Tue Oct 13 09:20:54 2015
+126297	[bug] filehandle read in a thead causes a segfault when the thread ends	Thu Oct 08 05:43:11 2015
+126014	Segmentation fault on 32-bit system – "x" xx 9999999999	Mon Sep 07 12:39:23 2015
+125978	[BUG] Segfault (and other crashes) when using .hyper	Thu Sep 03 07:41:51 2015
+125756	Reading from Proc.out after using :merge with shell() or run() segfaults	Wed Aug 05 10:28:17 2015
+125507	[BUG] A script shows an invalid read in valgrind (and leaks and segfaults) in Rakudo	Mon Jun 29 01:24:55 2015
+125254	rakudo VM segfault	Tue May 26 12:41:34 2015
+125243	[BUG] NativeCall segfault on rw struct pointer	Sun May 24 04:54:09 2015
+124434	[BUG] Passing an Exception object to Failure.new segfaults (SEGV) in sink context in Rakudo	Fri May 01 06:16:20 2015
+124057	[BUG] Proxy class attribute interaction segfaults	Thu Mar 12 16:15:31 2015
+123968	Rakudo on MoarVM segfaults on simple IO::Socket::Async echo server	Mon Mar 02 12:54:17 2015
+123488	using WHO on the instance of a parametric role causes segfault/internal error	Tue Dec 23 07:11:55 2014
+122716	[BUG] Segmentation fault when digging into the package namespace of a type capture in Rakudo	Sat Sep 06 09:34:47 2014
+116691	[BUG] Segmentation fault when string-repeating (infix:<x>) ridiculously long strings in Rakudo	Fri Feb 08 03:46:04 2013
+115270	[BUG] Segmentation fault for some code in Rakudo	Mon Oct 15 04:19:04 2012

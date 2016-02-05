@@ -3,7 +3,6 @@ use HTTP::Server::Simple::PSGI;
 use JSON::Fast;
 
 my $app = sub (%env) {
-  say %env<REQUEST_URI>;
   given %env<REQUEST_URI>.split('?')[0] {
     when $_ ~~ '/' {
       return [
@@ -13,22 +12,23 @@ my $app = sub (%env) {
       ]
     }
     when $_ ~~ '/tickets' {
+      my $subject = %env<QUERY_STRING>.split('&')[0].split('=')[1];
+      my $req = Proc::Async.new('rt', 'ls',
+        '-f', 'id,subject,created', '-o', '-id',
+        "(Status = 'new' OR Status = 'open' OR Status = 'stalled')" ~
+        " AND (Subject LIKE '$subject')");
+      my $output; $req.stdout.tap(-> $_ { $output = $_ });
+      await $req.start;
+      say $output;
       return [
         '200',
         [ 'Content-Type' => 'application/json' ],
         [
-          (to-json [
-            {
-              id      => 127454,
-              subject => 'parameter bug',
-              created => '41 hours ago'
-            },
-            {
-              id      => 127440,
-              subject => 'Segmentation Fault with Crust',
-              created => '4 days ago'
-            }
-          ])
+          '[' ~ $output.split("\n")[1..* - 2].map({
+            my ($id, $subject, $created) =
+              $_.split("\t").map({ .trans(['"'] => ['\"']) });
+            "\{\"id\":\"$id\",\"subject\":\"$subject\",\"created\":\"$created\"\}";
+          }).join(',') ~ ']';
         ]
       ]
     }
