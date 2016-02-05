@@ -1,0 +1,13 @@
+{
+  "perl"       : "6",
+  "name"       : "App::SixBug",
+  "version"    : "0.0.1",
+  "description": "Web form for submitting perl6 bug reports",
+  "authors"    : [ "Jake Russo <madcap.russo@gmail.com" ],
+  "provides"   : {},
+  "depends"    : [
+    "HTTP::Server::Simple",
+    "Net::SMTP"
+  ],
+  "source-url" : "git://github.com/madcapjake/sixbug.git"
+}
