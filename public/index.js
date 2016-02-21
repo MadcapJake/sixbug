@@ -1,16 +1,17 @@
 $(document).ready(function() {
   var PosTicketCollapse = (function() {
-    var urlBase = "/tickets?subject=",
+    var url = "/tickets",
         collapser = $("#collapser"),
         subjList = $("#collapser ul.list-group")
-        subject = $("#bug-subj");
+        subject = $("#bug-subj"),
+        tickets = {};
 
     var init = function() {
       subject.on('input', function(e) {
-        var search = subject.val()
-        if (search.length > 3) {
+        var input = subject.val();
+        if (input.length > 3) {
           $.get({
-            url: urlBase + encodeURIComponent(search),
+            url: url,
             dataType: 'json',
             error: function(jqXHR, textStatus, errorThrown) {
               console.log(jqXHR);
@@ -18,9 +19,11 @@ $(document).ready(function() {
               console.log(errorThrown);
             },
             success: function(data) {
-              console.log(data);
+              var fuse = new Fuse(data, { keys: ['subject'] });
+              tickets = fuse.search(input);
+              // console.log(data);
               subjList.empty();
-              data.map(function(ticket) {
+              tickets.map(function(ticket) {
                 var rightCreated =
                   '<span class="label label-default label-pill pull-right">' +
                   ticket.created + '</span>'
