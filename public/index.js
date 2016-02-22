@@ -31,11 +31,14 @@ $(document).ready(function() {
                  'href="https://rt.perl.org/Ticket/Display.html?id=' +
                   ticket.id + '" ' +
                  'style="margin-left: 1em; target-new: tab;">' +
-              '<span class="glyphicon glyphicon-new-window" ' +
-              'title="external-link" aria-hidden="true">' +
-              '</span></a>' +
-              '<span class="label label-default label-pill pull-right">' +
-              ticket.created + '</span>'
+                '<span class="glyphicon glyphicon-new-window" ' +
+                      'title="external-link" aria-hidden="true">' +
+                '</span>' +
+              '</a>' +
+              '<span class="label label-default label-pill pull-right" ' +
+                    'style="padding-top: 0.5em;">' +
+                    ticket.created +
+              '</span>'
             var item = $("<li>")
               .addClass('list-group-item')
               .html(rightCreated + ticket.id + " - " + ticket.subject);
