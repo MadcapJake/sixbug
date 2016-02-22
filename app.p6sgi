@@ -12,8 +12,8 @@ my %txt-type =
   :js<application/javascript>,
   :json<application/json>,
   :svg<image/svg+xml>;
-
 my regex TXT { <{ %txt-type.keys }> }
+
 my %bin-type =
   :eot<application/vnd.ms-fontobject>,
   :otf<application/x-font-otf>,
