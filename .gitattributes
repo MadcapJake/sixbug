@@ -1,0 +1,2 @@
+*.p6sgi linguist-language=Perl 6
+vendor/* linguist-vendored

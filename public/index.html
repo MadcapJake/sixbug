@@ -3,12 +3,15 @@
   <head>
     <meta charset="utf-8">
     <title>Perl 6 Bug Report</title>
-    <script src="https://code.jquery.com/jquery-2.2.0.js" charset="utf-8"></script>
+    <script src="https://code.jquery.com/jquery-2.2.0.js"></script>
+    <script src="/vendor/jquery.simplePagination.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha256-KXn5puMvxCw+dAYznun+drMdG1IFl3agK0p/pqT9KAo= sha512-2e8qq0ETcfWRI4HJBzQiA3UoyFk6tbNyG+qSaIBZLyW9Xf3sWZHN/lxe9fTh1U45DpPf07yj94KsUHHWe4Yk1A==" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="http://perl6.org/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="http://perl6.org/bootstrap/css/bootstrap-theme.min.css" media="screen">
+    <script src="https://cdn.jsdelivr.net/fuse/2.0.1/fuse.js" charset="utf-8"></script>
+    <link rel="stylesheet" href="vendor/bootstrap.css">
+    <link rel="stylesheet" href="http://perl6.org/bootstrap/css/bootstrap-theme.min.css">
     <link rel="icon" href="https://raw.githubusercontent.com/perl6/perl6.org/master/source/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/public/index.css" media="screen" title="index" charset="utf-8">
+    <link type="text/css" rel="stylesheet" href="vendor/simplePagination.css"/>
+    <link rel="stylesheet" href="/public/index.css">
   </head>
   <body>
     <div class=bg>
@@ -96,9 +99,10 @@
                 </select>
               </div>
             </fieldset>
-            <fieldset class="form-group collapse" id="collapser">
+            <fieldset class="form-group collapse" id="collapser" style="margin-bottom: 0.5em;">
               <ul class="list-group" style="margin-bottom: 0"></ul>
             </fieldset>
+            <div id=pager class=pager style="margin-bottom: 1em;"></div>
             <fieldset class="form-group" style="clear: both;">
               <textarea class="form-control" id="bug-body" name="body" rows=20></textarea>
             </fieldset>

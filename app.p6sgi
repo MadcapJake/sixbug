@@ -1,0 +1,65 @@
+use v6;
+# use HTTP::Server::Simple::PSGI;
+use Crust::Request;
+# use App::Prancer::Handler;
+
+sub NotFound {
+  [ ~404, [],
+          [ 'Not Found' ] ]
+}
+
+# =for HTTP_Server_Simple
+my %txt-type =
+  :css<text/css>,
+  :js<application/javascript>,
+  :json<application/json>,
+  :svg<image/svg+xml>;
+
+my regex TXT { <{ %txt-type.keys }> }
+my %bin-type =
+  :eot<application/vnd.ms-fontobject>,
+  :otf<application/x-font-otf>,
+  :ttf<application/x-font-ttf>,
+  :woff<application/x-font-woff>,
+  :woff2<application/x-font-woff>;
+my regex BIN { <{ %bin-type.keys }> }
+
+=for App_Prancer
+multi GET() is handler {
+  'static/index.html'.IO.slurp
+}
+prance;
+
+# =for HTTP_Server_Simple
+sub app($env) {
+  my $req = Crust::Request.new($env);
+  given $req.path-info {
+    when '/' {
+      [ 200, [ 'Content-Type' => 'text/html' ],
+             [ slurp('public/index.html') ] ]
+    }
+    when '/tickets' {
+      [ 200, [ 'Content-Type' => 'application/json' ],
+             [ slurp('public/tickets.json') ] ]
+    }
+    when m!\/(public|vendor)\/([\w|\.|\-]+)\.(<TXT>)! {
+      my $filepath = "$0/$1.$2";
+      return NotFound unless $filepath.IO.f;
+      [ 200, [ 'Content-Type' => %txt-type{$2} ],
+             [ $filepath.IO.slurp ] ]
+    }
+    when m!\/(public|vendor)\/([\w|\.|\-]+)\.(<BIN>)! {
+      my $filepath = "$0/$1.$2";
+      return NotFound unless $filepath.IO.f;
+      [ 200, [ 'Content-Type' => %bin-type{$2} ],
+             [ $filepath.IO.slurp :bin ] ]
+    }
+    default { NotFound }
+  }
+}
+
+=for HTTP_Server_Simple
+my HTTP::Server::Simple::PSGI $server .= new(8080);
+$server.host = 'localhost';
+$server.app($app);
+$server.run;
