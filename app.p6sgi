@@ -1,15 +1,12 @@
 # -*- mode: Perl6;-*-
 use v6;
-# use HTTP::Server::Simple::PSGI;
 use Crust::Request;
-# use App::Prancer::Handler;
 
 sub NotFound {
   [ ~404, [],
           [ 'Not Found' ] ]
 }
 
-# =for HTTP_Server_Simple
 my %txt-type =
   :css<text/css>,
   :js<application/javascript>,
@@ -25,13 +22,6 @@ my %bin-type =
   :woff2<application/x-font-woff>;
 my regex BIN { <{ %bin-type.keys }> }
 
-=for App_Prancer
-multi GET() is handler {
-  'static/index.html'.IO.slurp
-}
-prance;
-
-# =for HTTP_Server_Simple
 sub app($env) {
   my $req = Crust::Request.new($env);
   given $req.path-info {
@@ -58,9 +48,3 @@ sub app($env) {
     default { NotFound }
   }
 }
-
-=for HTTP_Server_Simple
-my HTTP::Server::Simple::PSGI $server .= new(8080);
-$server.host = 'localhost';
-$server.app($app);
-$server.run;
