@@ -5,7 +5,7 @@ my $req = Proc::Async.new('rt', 'ls',
   "(Status = 'new' OR Status = 'open' OR Status = 'stalled')");
 my $output; $req.stdout.tap(-> $_ { $output ~= $_ });
 await $req.start;
-spurt 'public/tickets.json',
+spurt 'static/tickets.json',
   "[\n" ~ $output.lines[1..* - 2].map({
       my ($id, $subject, $created) =
         $_.split("\t").map({ .trans(['"', '\\'] => ['\"', '\\\\']) });

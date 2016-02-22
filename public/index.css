@@ -9,7 +9,7 @@
 
   .bg { padding-top: 70px; padding-bottom: 20px; background: #fff; min-height: 400px; }
 
-  .navbar-inverse a { text-shadow: none !important; }
+  .navbar-inverse a { text-shadow: none !important; color: #000 !important; }
   .navbar-inverse .active a,
   .navbar-inverse a:hover,
   .navbar-inverse a:focus,
