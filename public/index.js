@@ -1,12 +1,31 @@
+const perPage = 10;
+
 $(document).ready(function() {
   var PosTicketCollapse = (function() {
     var collapser = $("#collapser"),
         subjList = $("#collapser ul.list-group")
         subject = $("#bug-subj"),
-        tickets = { updatedAt: 0, data: {} },
-        render = function(tickets) {
+        tickets = { updatedAt: 0, data: {}, result: [] },
+        pager = $("#pager"),
+        pagedTickets = function() {
+          subjList.children().slice(perPage).hide();
+          pager.pagination({
+            items: tickets.result.length,
+            itemsOnPage: perPage,
+            cssStyle: 'light-theme',
+            hrefTextPrefix: '#',
+            onPageClick: function(pageNum) {
+              var showFrom = perPage * (pageNum - 1),
+                  showTo = showFrom + perPage;
+              subjList.children()
+                      .hide()
+                      .slice(showFrom, showTo).show();
+            }
+          });
+        },
+        render = function() {
           subjList.empty();
-          tickets.slice(0,10).map(function(ticket) {
+          tickets.result.map(function(ticket) {
             var rightCreated =
               '<span class="label label-default label-pill pull-right">' +
               ticket.created + '</span>'
@@ -14,16 +33,15 @@ $(document).ready(function() {
               .addClass('list-group-item')
               .html(rightCreated + ticket.id + " - " + ticket.subject);
             subjList.append(item);
-            collapser.collapse('show');
-          })
+          });
+          collapser.collapse('show');
+          pagedTickets();
         },
         init = function() {
           subject.on('input', function(e) {
             var input = subject.val()
             if (input.length > 3) {
-              console.log('length exceeded');
               if (Math.abs(tickets.updatedAt - new Date()) > 90000) {
-                console.log('data expired');
                 $.get({
                   url: "/tickets",
                   dataType: 'json',
@@ -38,13 +56,11 @@ $(document).ready(function() {
                       keys: ['subject'],
                       threshold: 0.3
                     });
-                    render(tickets.data.search(input));
+                    tickets.result = tickets.data.search(input)
+                    render();
                   }
                 });
-              } else {
-                console.log('data fresh');
-                render(tickets.data.search(input))
-              }
+              } else { render(tickets.data.search(input)) }
             } else { collapser.collapse('hide') }
           });
         };

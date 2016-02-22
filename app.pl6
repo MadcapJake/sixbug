@@ -18,17 +18,11 @@ my $app = sub (%env) {
       [ ~200, [ 'Content-Type' => 'application/json' ],
               [ slurp('public/tickets.json') ] ]
     }
-    when m!\/public\/([\w|\.]+)\.([json|js|css])! {
-      say $0;
-      say $1;
-      return NotFound unless "public/$0.$1".IO.e;
-      [ ~200, [ 'Content-Type' => %content-type{$1} ],
-              [ slurp("public/$0.$1") ] ]
-    }
-    when m!\/vendor\/([\w|\.]+)\.([js|css])! {
-      return NotFound unless "vendor/$0.$1".IO.e;
-      [ ~200, [ 'Content-Type' => %content-type{$1} ],
-              [ slurp("vendor/$0.$1") ] ]
+    when m!\/(public|vendor)\/([\w|\.]+)\.([json|js|css])! {
+      my $filepath = "$0/$1.$2";
+      return NotFound unless $filepath.IO.e;
+      [ ~200, [ 'Content-Type' => %content-type{$2} ],
+              [ slurp($filepath) ] ]
     }
     default { NotFound }
   }
