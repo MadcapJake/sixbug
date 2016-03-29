@@ -1,10 +1,18 @@
 # -*- mode: Perl6;-*-
 use v6;
-use Crust::Request;
 
-sub NotFound {
-  [ ~404, [],
-          [ 'Not Found' ] ]
+use Crust::Request;
+use Email::Simple;
+use JSON::Fast;
+use Net::Curl::NativeCall;
+use Net::SMTP;
+
+constant CaptchaSecret = %*ENV<SIXBUG_CAPTCHA_SECRET>;
+constant EmailPassword = %*ENV<SIXBUG_EMAIL_PW>;
+constant EmailUsername = 'perl6bug@gmail.com';
+constant NotFound = [ ~404, [], [ 'Not Found' ] ];
+constant RTADDY = sub {
+  %*ENV<SIXBUG_DEBUG> ?? 'madcap.russo@gmail.com' !! 'rakudobug@perl.org';
 }
 
 my %txt-type =
@@ -22,8 +30,45 @@ my %bin-type =
   :woff2<application/x-font-woff>;
 my regex BIN { <{ %bin-type.keys }> }
 
-sub app($env) {
-  my $req = Crust::Request.new($env);
+sub check-captcha($response, $ip?) {
+  my Bool $is-human = False;
+  with curl_easy_init() {
+    my Str $body;
+    my $post = "secret={CaptchaSecret}\&response=$response" ~ ($ip ?? "\&remoteip=$ip" !! "");
+    curl_easy_setopt($_, CURLOPT_URL, 'https://www.google.com/recaptcha/api/siteverify');
+    curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, $post);
+    curl_easy_setopt($_, CURLOPT_WRITEDATA, $body);
+    my $res = curl_easy_perform($_);
+    if $res != CURLE_OK {
+      warn sprintf("curl_easy_perform failed: %s\n", curl_easy_strerror($res))
+    } else {
+      with from-json($body) { $_<success> ?? ($is-human = True) !! warn $_<error-codes> }
+    }
+    curl_easy_cleanup($_)
+  } else { warn "curl failed to initialize" }
+  return $is-human
+}
+
+sub send-email(Email::Simple $email) {
+  without EmailPassword { die 'Must provided email password' }
+
+  my Net::SMTP $client .= new :server('smtp.gmail.com') :587port :starttls :debug;
+  $client.auth(EmailUsername, EmailPassword);
+  $client.send($email);
+  $client.quit;
+}
+
+sub ip($req) {
+  my $h = $req.headers;
+     $h.header('HTTP_CLIENT_IP')
+  // $h.header('X-Forwarded-For')
+  // $h.header('HTTP_X_FORWARDED_FOR')
+  // $h.header('REMOTE_ADDR')
+}
+
+
+sub app(%env) {
+  my $req = Crust::Request.new(%env);
   given $req.path-info {
     when '/' {
       [ 200, [ 'Content-Type' => 'text/html' ],
@@ -32,6 +77,23 @@ sub app($env) {
     when '/tickets' {
       [ 200, [ 'Content-Type' => 'application/json' ],
              [ slurp('public/tickets.json') ] ]
+    }
+    when '/submit' {
+      if check-captcha($req.parameters<g-recaptcha-response>, ip($req)) {
+        my $email = Email::Simple.create(
+          header => [ [ 'To',      "<{RTADDY}>" ],
+                      [ 'From',    '<perl6bug@gmail.com>' ],
+                      [ 'Subject', $req.parameters<subject> ] ],
+          body   => $req.parameters<body>
+        );
+        send-email($email);
+
+        [ 200, ['content-length' => $content.Str.encode.bytes],
+               [$content.Str] ]
+      } else {
+        [ 401, [],
+               ['Unauthorized: did not pass recaptcha'] ]
+      }
     }
     when m!\/(public|vendor)\/([\w|\.|\-]+)\.(<TXT>)! {
       my $filepath = "$0/$1.$2";

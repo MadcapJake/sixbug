@@ -12,6 +12,7 @@
     <link rel="icon" href="https://raw.githubusercontent.com/perl6/perl6.org/master/source/favicon.ico" type="image/x-icon">
     <link type="text/css" rel="stylesheet" href="vendor/simplePagination.css"/>
     <link rel="stylesheet" href="/public/index.css">
+    <script src='https://www.google.com/recaptcha/api.js'></script>
   </head>
   <body>
     <div class=bg>
@@ -58,8 +59,8 @@
 
         </header>
         <main class=row>
-          <form class="" action="submit" method="post">
-            <fieldset class="form-group">
+          <form class="" action="/submit" method="post">
+            <fieldset class="form-group" style="margin-bottom: 2em;">
               <label for="bug-email">
                 Would you like to follow this issue? <small class="text-muted">(optional)</small>
               </label>
@@ -96,6 +97,8 @@
                   <option value="2015.12">2015.12</option>
                   <option value="2016.01">2016.01</option>
                   <option value="2016.01.1" selected>2016.01.1</option>
+                  <option value="2016.02">2016.02</option>
+                  <option value="2016.03">2016.03</option>
                 </select>
               </div>
             </fieldset>
@@ -105,6 +108,10 @@
             <div id=pager class=pager style="margin-bottom: 1em;"></div>
             <fieldset class="form-group" style="clear: both;">
               <textarea class="form-control" id="bug-body" name="body" rows=20></textarea>
+            </fieldset>
+            <fieldset class="form-group">
+              <button type="submit" class="btn btn-default pull-right" name="issue">Submit</button>
+              <div style="margin-right: 1em;" class="g-recaptcha pull-right" data-sitekey="6Lfu4xsTAAAAABKqLjUFZ_uEAjRWOyAAdD_05cx1"></div>
             </fieldset>
           </form>
         </main>
