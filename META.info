@@ -3,7 +3,7 @@
   "name"       : "App::SixBug",
   "version"    : "0.3.0",
   "description": "Web form for submitting perl6 bug reports",
-  "authors"    : [ "Jake Russo <madcap.russo@gmail.com" ],
+  "authors"    : [ "Jake Russo <madcap.russo@gmail.com>" ],
   "provides"   : {},
   "depends"    : [
     "Crust",
