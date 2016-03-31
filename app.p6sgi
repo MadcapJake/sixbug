@@ -2,18 +2,19 @@
 use v6;
 
 use Crust::Request;
-use Email::Simple;
 use JSON::Fast;
 use Net::Curl::NativeCall;
-use Net::SMTP;
 
 constant CaptchaSecret = %*ENV<SIXBUG_CAPTCHA_SECRET>;
+constant NotFound = [ ~404, [], [ 'Not Found' ] ];
+constant RTPW = %*ENV<SIXBUG_RT_PW>;
+constant RTURL = 'https://rt.perl.org/REST/1.0/';
+# constant RTURL = 'https://demo.bestpractical.com/REST/1.0/';
+
+=for OLDSTYLE
 constant EmailPassword = %*ENV<SIXBUG_EMAIL_PW>;
 constant EmailUsername = 'perl6bug@gmail.com';
-constant NotFound = [ ~404, [], [ 'Not Found' ] ];
-constant RTADDY = sub {
-  %*ENV<SIXBUG_DEBUG> ?? 'madcap.russo@gmail.com' !! 'rakudobug@perl.org';
-}
+constant RTADDY = sub { %*ENV<SIXBUG_DEBUG> ?? 'madcap.russo@gmail.com' !! 'rakudobug@perl.org' }
 
 my %txt-type =
   :css<text/css>,
@@ -30,6 +31,10 @@ my %bin-type =
   :woff2<application/x-font-woff>;
 my regex BIN { <{ %bin-type.keys }> }
 
+sub print-curl-err($res) {
+  warn sprintf("curl_easy_perform failed: %s\n", curl_easy_strerror($res))
+}
+
 sub check-captcha($response, $ip?) {
   my Bool $is-human = False;
   with curl_easy_init() {
@@ -39,9 +44,7 @@ sub check-captcha($response, $ip?) {
     curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, $post);
     curl_easy_setopt($_, CURLOPT_WRITEDATA, $body);
     my $res = curl_easy_perform($_);
-    if $res != CURLE_OK {
-      warn sprintf("curl_easy_perform failed: %s\n", curl_easy_strerror($res))
-    } else {
+    if $res != CURLE_OK { print-curl-err($res) } else {
       with from-json($body) { $_<success> ?? ($is-human = True) !! warn $_<error-codes> }
     }
     curl_easy_cleanup($_)
@@ -49,9 +52,61 @@ sub check-captcha($response, $ip?) {
   return $is-human
 }
 
+sub get-tickets {
+  say 'Getting tickets';
+  my Hash @tickets;
+  with curl_easy_init() {
+    my Str $raw;
+    my $login = "user=perl6bug\@gmail.com\&pass={%*ENV<SIXBUG_RT_PW>}";
+    curl_easy_setopt($_, CURLOPT_URL, "{RTURL}search/ticket?query=Queue='perl6'");
+    curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, $login);
+    curl_easy_setopt($_, CURLOPT_WRITEDATA, $raw);
+    my $res = curl_easy_perform($_);
+    if $res != CURLE_OK { print-curl-err($res) } else {
+      say $raw;
+      @tickets = gather {
+        for ($raw.lines[1..*]».split(': ', 2)).grep(* == 2)
+        -> @ ($i, $s) { take { id => $i, subject => $s } }
+      }
+    }
+    curl_easy_cleanup($_)
+  } else { warn "curl failed to initialize" }
+  say @tickets;
+  return to-json(@tickets);
+}
+
+sub new-ticket(:$subject!, :$body!, :$requestor?) {
+  my Str $raw;
+  with curl_easy_init() {
+    # my $login = "user=perl6bug\@gmail.com\&pass={%*ENV<SIXBUG_RT_PW>}";
+    my $login = 'user=guest&pass=guest';
+    my $text = $body.lines.join("\n ");
+    my $content = qq:to/TICKET/;
+    id: ticket/new
+    Queue: General
+    Requestor: perl6bug@gmail.com
+    Subject: $subject
+    Cc: $requestor
+    Text: $text
+    TICKET
+    curl_easy_setopt($_, CURLOPT_URL, "{RTURL}ticket/new");
+    curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, "$login\&content=$content");
+    curl_easy_setopt($_, CURLOPT_WRITEDATA, $raw);
+    my $res = curl_easy_perform($_);
+    if $res != CURLE_OK {
+      warn sprintf("curl_easy_perform failed: %s\n", curl_easy_strerror($res))
+    } else {
+      say $raw if %*ENV<SIXBUG_DEBUG>;
+    }
+    curl_easy_cleanup($_)
+  } else { warn "curl failed to initialize" }
+  return $raw.match(/Ticket\s(\d+)\screated/)[0];
+
+}
+
+=for OLDSTYLE
 sub send-email(Email::Simple $email) {
   without EmailPassword { die 'Must provided email password' }
-
   my Net::SMTP $client .= new :server('smtp.gmail.com') :587port :starttls :debug;
   $client.auth(EmailUsername, EmailPassword);
   $client.send($email);
@@ -76,20 +131,19 @@ sub app(%env) {
     }
     when '/tickets' {
       [ 200, [ 'Content-Type' => 'application/json' ],
-             [ slurp('public/tickets.json') ] ]
+             [ get-tickets() ] ]
     }
     when '/submit' {
       if check-captcha($req.parameters<g-recaptcha-response>, ip($req)) {
-        my $email = Email::Simple.create(
-          header => [ [ 'To',      "<{RTADDY}>" ],
-                      [ 'From',    '<perl6bug@gmail.com>' ],
-                      [ 'Subject', $req.parameters<subject> ] ],
-          body   => $req.parameters<body>
-        );
-        send-email($email);
 
-        [ 200, ['content-length' => $content.Str.encode.bytes],
-               [$content.Str] ]
+        my $new-id = new-ticket(
+          subject   => $req.parameters<subject>,
+          body      => $req.parameters<body>,
+          requestor => $req.parameters<email>
+        );
+
+        [ 303, [ 'Location' => "https://rt.perl.org/Ticket/Display.html?id=$new-id" ],
+               ["Redirected to ticket #$new-id"] ]
       } else {
         [ 401, [],
                ['Unauthorized: did not pass recaptcha'] ]
