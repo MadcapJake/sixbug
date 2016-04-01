@@ -8,7 +8,6 @@ use Net::Curl::NativeCall;
 
 constant CaptchaSecret = %*ENV<SIXBUG_CAPTCHA_SECRET>;
 constant NotFound = [ ~404, [], [ 'Not Found' ] ];
-constant RTPW = %*ENV<SIXBUG_RT_PW>;
 # constant RTURL = 'https://rt.perl.org/REST/1.0/';
 # constant RTLOGIN = "user=perl6bug\@gmail.com\&pass={%*ENV<SIXBUG_RT_PW>}";
 constant RTURL = 'https://demo.bestpractical.com/REST/1.0/';
@@ -91,34 +90,25 @@ class Ticket {
   has Str $.created;
 
   multi submethod BUILD(Str :$!subject!, Str :$!text!, Str :$!cc?) {
-    say 'initializing curl...';
     with curl_easy_init() {
-      say 'filling content...';
       self.fill-content($!subject, $!cc, $!text.lines.join("\n "));
 
-      say 'setting curl options...';
       curl_easy_setopt($_, CURLOPT_URL, "{RTURL}ticket/new");
       curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, "{RTLOGIN}\&content=$!content");
       curl_easy_setopt($_, CURLOPT_WRITEDATA, $!response);
 
-      say 'performing curl request...';
       my $curl-code = curl_easy_perform($_);
       if $curl-code != CURLE_OK { print-curl-err($curl-code) } else {
         say $!response if %*ENV<SIXBUG_DEBUG>;
       }
 
-      say 'setting id...';
       $!id = +($!response.match(/Ticket\s(\d+)\screated/)[0]);
-      say "id set to $!id";
 
-      say 'setting created string...';
       $!created = DateTime.now(formatter => {
         "{short-day($_.day-of-week)} {short-month($_.month)} {$_.day} " ~
         "{$_.hour}:{$_.minute}:{$_.second.Int} {$_.year}"
       }).Str;
-      say "created set to $!created";
 
-      say 'cleaning up curl...';
       curl_easy_cleanup($_)
     } else { warn "curl failed to initialize" }
   }
@@ -140,7 +130,7 @@ class Ticket {
 
 class RT {
   has Instant $.updated;
-  has Ticket @!tickets;
+  has Ticket:D @!tickets;
   has Str $!ticket-json;
 
   sub refresh-json(@tickets) is cached { to-json(@tickets».Hash) }
@@ -177,7 +167,7 @@ class RT {
   }
 
   method add(Ticket:D $ticket) {
-    @!tickets.append($ticket);
+    @!tickets.unshift($ticket);
     $!ticket-json = refresh-json(@!tickets);
   }
 
@@ -211,12 +201,7 @@ sub app(%env) {
           text    => $req.parameters<body>,
           cc      => $req.parameters<email>
         );
-        warn 'ticket not created properly' unless $ticket ~~ Ticket:D;
-        $ticket.WHAT.say;
-        # say $ticket.WHAT;
-        # say $ticket.id;
-        # say $ticket.subject;
-        RT.add($ticket);
+        $RT.add($ticket);
         [ 303, [ 'Location' => 'https://rt.perl.org/Ticket/Display.html?id='
                                ~ $ticket.id ],
                [ 'Redirected to ticket #' ~ $ticket.id ] ]
