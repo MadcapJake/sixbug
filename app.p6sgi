@@ -1,5 +1,6 @@
 # -*- mode: Perl6;-*-
 use v6;
+use experimental :cached;
 
 use Crust::Request;
 use JSON::Fast;
@@ -8,13 +9,10 @@ use Net::Curl::NativeCall;
 constant CaptchaSecret = %*ENV<SIXBUG_CAPTCHA_SECRET>;
 constant NotFound = [ ~404, [], [ 'Not Found' ] ];
 constant RTPW = %*ENV<SIXBUG_RT_PW>;
-constant RTURL = 'https://rt.perl.org/REST/1.0/';
-# constant RTURL = 'https://demo.bestpractical.com/REST/1.0/';
-
-=for OLDSTYLE
-constant EmailPassword = %*ENV<SIXBUG_EMAIL_PW>;
-constant EmailUsername = 'perl6bug@gmail.com';
-constant RTADDY = sub { %*ENV<SIXBUG_DEBUG> ?? 'madcap.russo@gmail.com' !! 'rakudobug@perl.org' }
+# constant RTURL = 'https://rt.perl.org/REST/1.0/';
+# constant RTLOGIN = "user=perl6bug\@gmail.com\&pass={%*ENV<SIXBUG_RT_PW>}";
+constant RTURL = 'https://demo.bestpractical.com/REST/1.0/';
+constant RTLOGIN = 'user=guest&pass=guest';
 
 my %txt-type =
   :css<text/css>,
@@ -39,7 +37,8 @@ sub check-captcha($response, $ip?) {
   my Bool $is-human = False;
   with curl_easy_init() {
     my Str $body;
-    my $post = "secret={CaptchaSecret}\&response=$response" ~ ($ip ?? "\&remoteip=$ip" !! "");
+    my $post = "secret={CaptchaSecret}\&response=$response"
+               ~ ($ip ?? "\&remoteip=$ip" !! "");
     curl_easy_setopt($_, CURLOPT_URL, 'https://www.google.com/recaptcha/api/siteverify');
     curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, $post);
     curl_easy_setopt($_, CURLOPT_WRITEDATA, $body);
@@ -52,65 +51,136 @@ sub check-captcha($response, $ip?) {
   return $is-human
 }
 
-sub get-tickets {
-  say 'Getting tickets';
-  my Hash @tickets;
-  with curl_easy_init() {
-    my Str $raw;
-    my $login = "user=perl6bug\@gmail.com\&pass={%*ENV<SIXBUG_RT_PW>}";
-    curl_easy_setopt($_, CURLOPT_URL, "{RTURL}search/ticket?query=Queue='perl6'");
-    curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, $login);
-    curl_easy_setopt($_, CURLOPT_WRITEDATA, $raw);
-    my $res = curl_easy_perform($_);
-    if $res != CURLE_OK { print-curl-err($res) } else {
-      say $raw;
-      @tickets = gather {
-        for ($raw.lines[1..*]».split(': ', 2)).grep(* == 2)
-        -> @ ($i, $s) { take { id => $i, subject => $s } }
-      }
-    }
-    curl_easy_cleanup($_)
-  } else { warn "curl failed to initialize" }
-  say @tickets;
-  return to-json(@tickets);
+sub short-day(Int $day where * ~~ 1..7) {
+  given $day {
+    when 1 { 'Mon' }
+    when 2 { 'Tue' }
+    when 3 { 'Wed' }
+    when 4 { 'Thu' }
+    when 5 { 'Fri' }
+    when 6 { 'Sat' }
+    when 7 { 'Sun' }
+  }
 }
 
-sub new-ticket(:$subject!, :$body!, :$requestor?) {
-  my Str $raw;
-  with curl_easy_init() {
-    # my $login = "user=perl6bug\@gmail.com\&pass={%*ENV<SIXBUG_RT_PW>}";
-    my $login = 'user=guest&pass=guest';
-    my $text = $body.lines.join("\n ");
-    my $content = qq:to/TICKET/;
+sub short-month(Int $month where * ~~ 1..12) {
+  given $month {
+    when 1  { 'Jan' }
+    when 2  { 'Feb' }
+    when 3  { 'Mar' }
+    when 4  { 'Apr' }
+    when 5  { 'May' }
+    when 6  { 'Jun' }
+    when 7  { 'Jul' }
+    when 8  { 'Aug' }
+    when 9  { 'Sep' }
+    when 10 { 'Oct' }
+    when 11 { 'Nov' }
+    when 12 { 'Dec' }
+  }
+}
+
+class Ticket {
+  has Str $!response;
+  has Str $!content;
+
+  has Int $.id;
+  has Str $.subject;
+  has Str $.text;
+  has Str $.cc;
+  has Str $.created;
+
+  multi submethod BUILD(Str :$!subject!, Str :$!text!, Str :$!cc?) {
+    say 'initializing curl...';
+    with curl_easy_init() {
+      say 'filling content...';
+      self.fill-content($!subject, $!cc, $!text.lines.join("\n "));
+
+      say 'setting curl options...';
+      curl_easy_setopt($_, CURLOPT_URL, "{RTURL}ticket/new");
+      curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, "{RTLOGIN}\&content=$!content");
+      curl_easy_setopt($_, CURLOPT_WRITEDATA, $!response);
+
+      say 'performing curl request...';
+      my $curl-code = curl_easy_perform($_);
+      if $curl-code != CURLE_OK { print-curl-err($curl-code) } else {
+        say $!response if %*ENV<SIXBUG_DEBUG>;
+      }
+
+      say 'setting id...';
+      $!id = +($!response.match(/Ticket\s(\d+)\screated/)[0]);
+      say "id set to $!id";
+
+      say 'setting created string...';
+      $!created = DateTime.now(formatter => {
+        "{short-day($_.day-of-week)} {short-month($_.month)} {$_.day} " ~
+        "{$_.hour}:{$_.minute}:{$_.second.Int} {$_.year}"
+      }).Str;
+      say "created set to $!created";
+
+      say 'cleaning up curl...';
+      curl_easy_cleanup($_)
+    } else { warn "curl failed to initialize" }
+  }
+  multi submethod BUILD(Int :$!id!, Str :$!subject!, Str :$!created!) {}
+
+  method fill-content(Str $subject, $cc, $text) {
+    $!content = qq:to/TICKET/;
     id: ticket/new
     Queue: General
     Requestor: perl6bug@gmail.com
     Subject: $subject
-    Cc: $requestor
+    Cc: $cc
     Text: $text
     TICKET
-    curl_easy_setopt($_, CURLOPT_URL, "{RTURL}ticket/new");
-    curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, "$login\&content=$content");
-    curl_easy_setopt($_, CURLOPT_WRITEDATA, $raw);
-    my $res = curl_easy_perform($_);
-    if $res != CURLE_OK {
-      warn sprintf("curl_easy_perform failed: %s\n", curl_easy_strerror($res))
-    } else {
-      say $raw if %*ENV<SIXBUG_DEBUG>;
-    }
-    curl_easy_cleanup($_)
-  } else { warn "curl failed to initialize" }
-  return $raw.match(/Ticket\s(\d+)\screated/)[0];
+  }
 
+  method Hash { return { id => $!id, subject => $!subject, created => $!created } }
 }
 
-=for OLDSTYLE
-sub send-email(Email::Simple $email) {
-  without EmailPassword { die 'Must provided email password' }
-  my Net::SMTP $client .= new :server('smtp.gmail.com') :587port :starttls :debug;
-  $client.auth(EmailUsername, EmailPassword);
-  $client.send($email);
-  $client.quit;
+class RT {
+  has Instant $.updated;
+  has Ticket @!tickets;
+  has Str $!ticket-json;
+
+  sub refresh-json(@tickets) is cached { to-json(@tickets».Hash) }
+
+  submethod BUILD() { self.get-tickets() }
+
+  method get-tickets {
+    with curl_easy_init() {
+      my Str $raw;
+      curl_easy_setopt($_, CURLOPT_URL, "{RTURL}search/ticket?query=Queue='perl6'"
+                                        ~ "\&format=s\&fields=id,subject,created");
+      curl_easy_setopt($_, CURLOPT_COPYPOSTFIELDS, RTLOGIN);
+      curl_easy_setopt($_, CURLOPT_WRITEDATA, $raw);
+      my $curl-code = curl_easy_perform($_);
+      if $curl-code != CURLE_OK { print-curl-err($curl-code) } else {
+        my List @lines = ($raw.lines[3..*]».split("\t")).grep(* == 3);
+        for @lines -> @ ($i, $s, $c) {
+          @!tickets.push(Ticket.new :id(+$i) :subject($s) :created($c))
+        }
+      }
+      curl_easy_cleanup($_)
+    } else { warn "curl failed to initialize" }
+    $!ticket-json = refresh-json(@!tickets);
+    $!updated = now;
+  }
+
+  method tickets() returns Str { self.cached-tickets(now) }
+  multi method cached-tickets( Instant $ where {
+    $_ < ($!updated + Duration.new(15 * 60))
+  } ) { return $!ticket-json }
+  multi method cached-tickets( Instant $ ) {
+    start { self.get-tickets() }
+    return $!ticket-json
+  }
+
+  method add(Ticket:D $ticket) {
+    @!tickets.append($ticket);
+    $!ticket-json = refresh-json(@!tickets);
+  }
+
 }
 
 sub ip($req) {
@@ -123,6 +193,7 @@ sub ip($req) {
 
 
 sub app(%env) {
+  state RT $RT .= new;
   my $req = Crust::Request.new(%env);
   given $req.path-info {
     when '/' {
@@ -131,22 +202,27 @@ sub app(%env) {
     }
     when '/tickets' {
       [ 200, [ 'Content-Type' => 'application/json' ],
-             [ get-tickets() ] ]
+             [ $RT.tickets() ] ]
     }
     when '/submit' {
       if check-captcha($req.parameters<g-recaptcha-response>, ip($req)) {
-
-        my $new-id = new-ticket(
-          subject   => $req.parameters<subject>,
-          body      => $req.parameters<body>,
-          requestor => $req.parameters<email>
+        my Ticket $ticket .= new(
+          subject => $req.parameters<subject>,
+          text    => $req.parameters<body>,
+          cc      => $req.parameters<email>
         );
-
-        [ 303, [ 'Location' => "https://rt.perl.org/Ticket/Display.html?id=$new-id" ],
-               ["Redirected to ticket #$new-id"] ]
+        warn 'ticket not created properly' unless $ticket ~~ Ticket:D;
+        $ticket.WHAT.say;
+        # say $ticket.WHAT;
+        # say $ticket.id;
+        # say $ticket.subject;
+        RT.add($ticket);
+        [ 303, [ 'Location' => 'https://rt.perl.org/Ticket/Display.html?id='
+                               ~ $ticket.id ],
+               [ 'Redirected to ticket #' ~ $ticket.id ] ]
       } else {
         [ 401, [],
-               ['Unauthorized: did not pass recaptcha'] ]
+               [ 'Unauthorized: did not pass recaptcha' ] ]
       }
     }
     when m!\/(public|vendor)\/([\w|\.|\-]+)\.(<TXT>)! {
